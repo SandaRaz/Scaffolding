@@ -1,0 +1,8 @@
+Alaina ny liste import efa ao (if(start with @NgModule): break)
+    import { EtudiantComponent } from './$class$/$class$.component';
+
+Alaina ny liste declaration efa ao de mamorona vaovao miampy anilay vao ho generena
+
+Alaina ny liste Routeur.Module efa ao de mamorona vaovao miampy anilay vao ho generena
+
+

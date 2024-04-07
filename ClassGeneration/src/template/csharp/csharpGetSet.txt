@@ -1,8 +1,0 @@
-    public $type $FieldName{
-        get{
-            return $fieldName;
-        }
-        set{
-            $fieldName = value;
-        }
-    }

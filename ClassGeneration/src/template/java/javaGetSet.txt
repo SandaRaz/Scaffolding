@@ -1,6 +1,0 @@
-    public $type get$FieldName(){
-        return this.$fieldName;
-    }
-    public void set$FieldName($type $fieldName){
-        this.$fieldName = $fieldName;
-    }

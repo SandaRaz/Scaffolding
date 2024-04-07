@@ -1,9 +1,0 @@
-serial:int
-int4:int
-float8:double
-numeric:double
-varchar:string
-bpchar:string
-date:DateTime
-timestamp:DateTime
-bool:bool

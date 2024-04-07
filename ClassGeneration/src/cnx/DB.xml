@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<DB>
-    <database>Postgresql</database>
-    <url>jdbc:postgresql://localhost:5432</url>
-    <dbname>entreprise</dbname>
-    <user>postgres</user>
-    <password>mdpprom15</password>
-</DB>

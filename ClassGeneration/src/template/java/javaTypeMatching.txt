@@ -1,9 +1,0 @@
-serial:int
-int4:int
-float8:double
-numeric:double
-varchar:String
-bpchar:String
-date:Date
-timestamp:Date
-bool:Boolean

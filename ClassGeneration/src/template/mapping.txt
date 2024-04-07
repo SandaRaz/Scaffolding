@@ -1,9 +1,0 @@
-#package# $packages
-
-$import
-
-public class $class {
-$fields
-
-$gettersSetters
-}

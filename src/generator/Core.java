@@ -1,12 +1,204 @@
 package generator;
 
+import cnx.Connex;
+
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
 
 public class Core {
-    public void CommandLine(){
+    String defaultPackage = "";
+    String defaultConrollerPackage = "";
+    private final Generator generator;
 
+    public String getDefaultPackage(){
+        return this.defaultPackage;
     }
+    public void setDefaultPackage(String defaultPackage){
+        this.defaultPackage = defaultPackage;
+    }
+
+    public String getDefaultConrollerPackage() {
+        return defaultConrollerPackage;
+    }
+
+    public void setDefaultConrollerPackage(String defaultConrollerPackage) {
+        this.defaultConrollerPackage = defaultConrollerPackage;
+    }
+
+    public Core(){
+        this.generator = new Generator();
+    }
+
+    public void Process() throws SQLException {
+        Connection cnx = Connex.getConnection();
+
+        Scanner scanner = new Scanner(System.in);
+        String command = "";
+        while(true){
+            System.out.println(">");
+            command = scanner.nextLine();
+            if(EndTask(command)){
+                break;
+            }
+            try {
+                ExecuteTasks(cnx, command);
+            } catch (Exception e) {
+                System.out.println("Internal error: "+e.getMessage());
+            }
+        }
+        scanner.close();
+        cnx.close();
+    }
+
+    public boolean EndTask(String command){
+        String trimmedCommand = command.toLowerCase().trim();
+        return trimmedCommand.equals("done") || trimmedCommand.equals("quit") || trimmedCommand.equals("exit");
+    }
+
+    // set default package Models : set default package $yourPackage$
+    // generate etudiant crud for csharp with angular : generate $tableName$ crud for $backend$ with $frontend$
+    public void ExecuteTasks(Connection cnx, String command) throws Exception {
+        boolean isClosed = false;
+        if(cnx.isClosed()){
+            cnx = Connex.getConnection();
+            isClosed = true;
+        }
+
+        String unspacedCommand = generator.RemoveSpace(command.toLowerCase());
+
+        Map<String,String> mapCommand = new HashMap<>();
+        if(unspacedCommand.startsWith("setdefaultpackage")){
+            String defaultCommand = "set default package $yourPackage$";
+            String[] tabDefaultCommand = defaultCommand.split("\\s+");
+            String[] tabCommand = command.split("\\s+");
+
+            if(CommandValid(tabDefaultCommand, tabCommand)) {
+                for (int i = 0; i < tabDefaultCommand.length; i++) {
+                    if (isVariable(tabDefaultCommand[i])) {
+                        mapCommand.put(tabDefaultCommand[i].replace("$", ""), tabCommand[i]);
+                    }
+                }
+                this.defaultPackage = mapCommand.get("yourPackage");
+            }
+        } else if(unspacedCommand.startsWith("setdefaultcontrollerpackage")){
+            String defaultCommand = "set default controller package $yourControllerPackage$";
+            String[] tabDefaultCommand = defaultCommand.split("\\s+");
+            String[] tabCommand = command.split("\\s+");
+
+            if(CommandValid(tabDefaultCommand, tabCommand)) {
+                for (int i = 0; i < tabDefaultCommand.length; i++) {
+                    if (isVariable(tabDefaultCommand[i])) {
+                        mapCommand.put(tabDefaultCommand[i].replace("$", ""), tabCommand[i]);
+                    }
+                }
+                this.defaultConrollerPackage = mapCommand.get("yourControllerPackage");
+            }
+        } else if(unspacedCommand.startsWith("generate")){
+            String defaultCommand = "generate $tableName$ crud for $backend$ with $frontend$";
+            String[] tabDefaultCommand = defaultCommand.split("\\s+");
+            String[] tabCommand = command.split("\\s+");
+
+            if(CommandValid(tabDefaultCommand, tabCommand)){
+                for(int i=0; i<tabDefaultCommand.length; i++){
+                    if(isVariable(tabDefaultCommand[i])){
+                        mapCommand.put(tabDefaultCommand[i].replace("$",""), tabCommand[i]);
+                    }
+                }
+
+                String tableName = mapCommand.get("tableName");
+                String language = mapCommand.get("backend");
+                String view = mapCommand.get("frontend");
+                String templatePath = "./src/template";
+//                String generatePath = "./";
+                String generatePath = "E:\\Sanda\\ITU\\Frameworks\\ProjetTest\\Angular3\\Angular3";
+
+                if(this.defaultPackage.isBlank()){
+                    System.out.println("Default package is empty. Run: set default package $yourPackage$");
+                }else if (this.defaultConrollerPackage.isBlank()){
+                    System.out.println("Default controller package is empty. Run: set default controller package $yourPackage$");
+                }else{
+                    System.out.println("    > Default package: "+this.defaultPackage);
+                    System.out.println("    > Default controller package: "+this.defaultConrollerPackage);
+
+                    // Generating Model
+                    this.generator.GenerateClass(cnx,templatePath,generatePath,tableName,language,this.defaultPackage);
+                    // Generating Controller
+                    this.generator.GenerateController(cnx,templatePath,generatePath,tableName,language,this.defaultConrollerPackage);
+                    // Generating View
+                    this.generator.GenerateView(cnx, templatePath, generatePath, tableName, language, view);
+
+                }
+            }
+        } else {
+            System.out.println("'"+command+"' is not a valid command");
+        }
+
+        if(isClosed){
+            cnx.close();
+        }
+    }
+
+    public boolean isVariable(String word){
+        String trimmedWord = word.trim();
+        return trimmedWord.startsWith("$") && trimmedWord.endsWith("$");
+    }
+
+    public boolean CommandValid(String[] defaultCommands, String[] yourCommands){
+        boolean commandValid = true;
+
+        StringBuilder command = new StringBuilder();
+        if(defaultCommands.length != yourCommands.length){
+            commandValid = false;
+            if(yourCommands.length > defaultCommands.length){
+                for(int i=0; i< yourCommands.length; i++){
+                    if(i >= defaultCommands.length){
+                        command.append(">").append(yourCommands[i]).append("<").append(" ");
+                    }else{
+                        command.append(yourCommands[i]).append(" ");
+                    }
+                }
+            }else{
+                for(int i = 0; i< yourCommands.length; i++){
+                    if(isVariable(defaultCommands[i])){
+                        command.append(yourCommands[i]).append(" ");
+                    }else{
+                        if(!defaultCommands[i].toLowerCase().trim().equals(yourCommands[i].toLowerCase().trim())){
+                            command.append(">").append(yourCommands[i]).append("<").append(" ");
+                            break;
+                        }else{
+                            command.append(yourCommands[i]).append(" ");
+                        }
+                    }
+                }
+            }
+        }else{
+            for(int i=0; i< defaultCommands.length; i++){
+                if(isVariable(defaultCommands[i])){
+                    command.append(yourCommands[i]).append(" ");
+                }else{
+                    if(!defaultCommands[i].toLowerCase().trim().equals(yourCommands[i].toLowerCase().trim())){
+                        command.append(">").append(yourCommands[i]).append("<").append(" ");
+                        commandValid = false;
+                        break;
+                    }else{
+                        command.append(yourCommands[i]).append(" ");
+                    }
+                }
+            }
+        }
+
+        if(!commandValid){
+            System.out.println("Unexpected command: " + command);
+        }
+
+        return commandValid;
+    }
+
     public void CommandExecute(String commande) throws IOException, InterruptedException {
         ProcessBuilder processBuilder = new ProcessBuilder(commande);
 
@@ -26,6 +218,15 @@ public class Core {
         int exitCode = process.waitFor();
         if(exitCode != 0){
             System.out.println("    "+commande+" execute avec error code "+exitCode);
+        }
+    }
+
+    public static void main(String[] args) {
+        Core mainCore = new Core();
+        try {
+            mainCore.Process();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 }

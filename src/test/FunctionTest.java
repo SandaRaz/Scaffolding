@@ -1,17 +1,17 @@
 package test;
 
 import cnx.Connex;
+import generator.Core;
 import generator.Generator;
 import generator.TypeAndName;
 
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.List;
+import java.util.Scanner;
 
 public class FunctionTest {
     static Generator generator = new Generator();
+    static Core core = new Core();
     public static void main(String[] args) throws SQLException {
         String context = "    context: [                ";
         System.out.println("Space removed: \"" + generator.RemoveSpace(context) + "\"");
@@ -27,9 +27,27 @@ public class FunctionTest {
 
         Connection cnx = Connex.getConnection();
 
+        String tableSql = "SELECT * FROM Coco";
+        Statement stmt = cnx.createStatement();
+        //ResultSet res = stmt.executeQuery(tableSql);
+
 //        ListPrimaryKey(cnx, "groupe");
 
         cnx.close();
+
+        String input = "> votre commande";
+        Scanner scanner = new Scanner(input);
+        String commande;
+
+        while(true){
+            System.out.println("> ");
+            String ligne = scanner.nextLine();
+            if(ligne.equals("exit")){
+                break;
+            }
+        }
+
+        scanner.close();
     }
 
     public static void ListPrimaryKey(Connection cnx, String table) throws SQLException {

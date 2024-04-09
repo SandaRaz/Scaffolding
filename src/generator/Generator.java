@@ -583,6 +583,22 @@ public class Generator {
         return horizontalLigne;
     }
 
+    public boolean TableExist(Connection cnx, String tableName) throws SQLException {
+        boolean isClosed = false;
+        if(cnx.isClosed()){
+            cnx = Connex.getConnection();
+            isClosed = true;
+        }
+
+        // Test if table exist
+
+        if(isClosed){
+            cnx.close();
+        }
+
+        return false;
+    }
+
     public void GenerateClass(Connection cnx, String templatePath, String generatePath, String tableName, String language, String packageName) throws Exception {
         List<String> lignes = new ArrayList<>();
 
@@ -704,7 +720,7 @@ public class Generator {
                 boolean created = classDir.mkdir();
             }
             File classFile = new File(classDir.getCanonicalPath() + File.separator + UpperFirstChar(tableName) + "." + extension);
-            System.out.println("Chemin d'acces: "+classDir.getCanonicalPath());
+//            System.out.println("Chemin d'acces: "+classDir.getCanonicalPath());
             if(!classFile.exists()){
                 boolean created = classFile.createNewFile();
             }
@@ -789,7 +805,7 @@ public class Generator {
                 boolean created = controllerDir.mkdir();
             }
             File classFile = new File(controllerDir.getCanonicalPath() + File.separator + UpperFirstChar(tableName) + "Controller." + extension);
-            System.out.println("Chemin d'acces: "+controllerDir.getCanonicalPath());
+//            System.out.println("Chemin d'acces: "+controllerDir.getCanonicalPath());
             if(!classFile.exists()){
                 boolean created = classFile.createNewFile();
             }
@@ -1226,7 +1242,7 @@ public class Generator {
                 String fileType = file.split(":")[0];
                 String fileName = file.split(":")[1];
                 fileName = ReplaceSimpleVariable(fileName,mappingVariables);
-                System.out.println("-----------"+fileName+"-----------");
+//                System.out.println("-----------"+fileName+"-----------");
 
                 File crudTemplate = new File(crudTemplatePath);
                 if(crudTemplate.exists()){
@@ -1275,5 +1291,7 @@ public class Generator {
             }
             // ------------------------------------------------------------------------------------------------
         }
+
+        System.out.println("\n >>> Done !");
     }
 }

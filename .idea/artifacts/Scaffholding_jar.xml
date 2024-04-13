@@ -1,9 +1,0 @@
-<component name="ArtifactManager">
-  <artifact type="jar" build-on-make="true" name="Scaffholding:jar">
-    <output-path>$PROJECT_DIR$/out/artifacts/Scaffholding_jar</output-path>
-    <root id="archive" name="Scaffholding.jar">
-      <element id="module-output" name="Scaffholding" />
-      <element id="extracted-dir" path="$PROJECT_DIR$/lib/postgresql-42.4.0.jar" path-in-jar="/" />
-    </root>
-  </artifact>
-</component>

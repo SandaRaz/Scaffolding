@@ -3,6 +3,8 @@ package generator;
 import cnx.Connex;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -40,7 +42,7 @@ public class Core {
         Scanner scanner = new Scanner(System.in);
         String command = "";
         while(true){
-            System.out.println(">");
+            System.out.print("> ");
             command = scanner.nextLine();
             if(EndTask(command)){
                 break;
@@ -49,6 +51,9 @@ public class Core {
                 ExecuteTasks(cnx, command);
             } catch (Exception e) {
                 System.out.println("Internal error: "+e.getMessage());
+                System.out.print("Stack Trace: ");
+                e.printStackTrace();
+//                throw new RuntimeException(e);
             }
         }
         scanner.close();
@@ -69,7 +74,7 @@ public class Core {
             isClosed = true;
         }
 
-        String unspacedCommand = generator.RemoveSpace(command.toLowerCase());
+        String unspacedCommand = generator.getMethods().RemoveSpace(command.toLowerCase());
 
         Map<String,String> mapCommand = new HashMap<>();
         if(unspacedCommand.startsWith("setdefaultpackage")){
@@ -113,9 +118,11 @@ public class Core {
                 String tableName = mapCommand.get("tableName");
                 String language = mapCommand.get("backend");
                 String view = mapCommand.get("frontend");
-                String templatePath = "./src/template";
-//                String generatePath = "./";
-                String generatePath = "E:\\Sanda\\ITU\\Frameworks\\ProjetTest\\Angular3\\Angular3";
+
+                String templateFolder = "template";
+                String generatePath = System.getProperty("user.dir");
+//                System.out.println("User Dir: "+generatePath);
+//                String generatePath = "E:\\Sanda\\ITU\\Frameworks\\ProjetTest\\Angular3\\Angular3";
 
                 if(this.defaultPackage.isBlank()){
                     System.out.println("Default package is empty. Run: set default package $yourPackage$");
@@ -126,11 +133,13 @@ public class Core {
                     System.out.println("    > Default controller package: "+this.defaultConrollerPackage);
 
                     // Generating Model
-                    this.generator.GenerateClass(cnx,templatePath,generatePath,tableName,language,this.defaultPackage);
+                    this.generator.GenerateClass(cnx,templateFolder,generatePath,tableName,language,this.defaultPackage);
+                    System.out.println("  -> Model generated");
                     // Generating Controller
-                    this.generator.GenerateController(cnx,templatePath,generatePath,tableName,language,this.defaultConrollerPackage);
+                    this.generator.GenerateController(cnx,templateFolder,generatePath,tableName,language,this.defaultConrollerPackage);
+                    System.out.println("  -> Controller generated");
                     // Generating View
-                    this.generator.GenerateView(cnx, templatePath, generatePath, tableName, language, view);
+                    this.generator.GenerateView(cnx, templateFolder, generatePath, tableName, language, view);
 
                 }
             }

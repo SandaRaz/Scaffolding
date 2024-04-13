@@ -1,6 +1,9 @@
 package generator;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
@@ -16,10 +19,10 @@ public class DaoGenerator {
         this.generator = generator;
     }
 
-    public List<String> ListDaoFunctions(String templatePath, String language) throws IOException {
-        String daoPath = templatePath + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "DAO.cfg";
+    public List<String> ListDaoFunctions(String templateFolder, String language) throws IOException, URISyntaxException {
+        String daoPath = templateFolder + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "DAO.cfg";
 
-        List<String> daoFileLines = Files.readAllLines(Paths.get(daoPath));
+        List<String> daoFileLines = generator.getMethods().readLines(daoPath);
         List<String> daoFunctions = new ArrayList<>();
         for(String daoFileLine : daoFileLines){
             String currentLine = daoFileLine.replaceAll("\\s+$", "");
@@ -31,10 +34,10 @@ public class DaoGenerator {
         return daoFunctions;
     }
 
-    public String GetDaoGetter(String templatePath, String language, String type) throws IOException {
+    public String GetDaoGetter(String templateFolder, String language, String type) throws IOException, URISyntaxException {
         String getter = "";
 
-        String caracteristiquePath = templatePath + "/" + language.toLowerCase() + "/" + language.toLowerCase()+"Caracteristique.cfg";
+        String caracteristiquePath = templateFolder + "/" + language.toLowerCase() + "/" + language.toLowerCase()+"Caracteristique.cfg";
         List<String> daoGetters = generator.ReadCaracteristique("[","DaoGetter","]",caracteristiquePath);
         for(String daoGetter : daoGetters){
             if(daoGetter.contains(type)){
@@ -152,14 +155,15 @@ public class DaoGenerator {
         return horizontalLigne;
     }
 
-    public void crudDAOToMap(Connection cnx, String tableName, String templatePath, String language, Map<String, String> mappingVariable) throws Exception {
-        List<String> daoFunctions = this.ListDaoFunctions(templatePath, language);
+    public void crudDAOToMap(Connection cnx, String tableName, String templateFolder, String language, Map<String, String> mappingVariable) throws Exception {
+        List<String> daoFunctions = this.ListDaoFunctions(templateFolder, language);
 
-        String daoPath = templatePath + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "DAO.cfg";
+        String daoPath = templateFolder + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "DAO.cfg";
+
         String className = tableName.substring(0,1).toUpperCase() + tableName.substring(1).toLowerCase();
         String classVariable = tableName.toLowerCase();
 
-        List<TypeAndName> fields = generator.GetTableFields(cnx,templatePath,language,tableName);
+        List<TypeAndName> fields = generator.GetTableFields(cnx,templateFolder,language,tableName);
         List<String> fieldReplacements = new ArrayList<>();
         List<String> fieldTypeReplacements = new ArrayList<>();
         List<String> updateFieldReplacements = new ArrayList<>();
@@ -171,7 +175,7 @@ public class DaoGenerator {
             fieldTypeReplacements.add(field.getColumnType());
             updateFieldReplacements.add(field.getColumnName());
             classVariableReplacements.add(tableName.toLowerCase());
-            DaoGetterReplacements.add(GetDaoGetter(templatePath,language,field.getColumnType()));
+            DaoGetterReplacements.add(GetDaoGetter(templateFolder,language,field.getColumnType()));
             fieldNumStart0Replacements.add(String.valueOf(fields.indexOf(field)));
         }
 
@@ -184,7 +188,7 @@ public class DaoGenerator {
         Map<String, String> mappingVariableDao = new HashMap<>();
         mappingVariableDao.put("className", className);
         mappingVariableDao.put("classVariable", classVariable);
-        mappingVariableDao.put("classPrefixe", generator.GetPrefixe(tableName, 3));
+        mappingVariableDao.put("classPrefixe", this.generator.getMethods().GetPrefixe(tableName, 3));
         if(classPK != null){
             mappingVariableDao.put("classPK", classPK.getColumnName().toLowerCase());
         }else{

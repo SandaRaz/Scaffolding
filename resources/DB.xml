@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <DB>
-    <database>Postgresql</database>
+    <sgbd>Postgresql</sgbd>
     <url>jdbc:postgresql://localhost:5432</url>
     <dbname>scaffholding</dbname>
     <user>postgres</user>

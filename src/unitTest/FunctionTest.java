@@ -1,53 +1,25 @@
-package test;
+package unitTest;
 
 import cnx.Connex;
 import generator.Core;
 import generator.Generator;
-import generator.TypeAndName;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.sql.*;
 import java.util.List;
-import java.util.Scanner;
 
 public class FunctionTest {
     static Generator generator = new Generator();
     static Core core = new Core();
-    public static void main(String[] args) throws SQLException {
-        String context = "    context: [                ";
-        System.out.println("Space removed: \"" + generator.RemoveSpace(context) + "\"");
-
-        String beginning = "api-proxy-beginning:context:[";
-        String[] splitted = generator.SplitInTwo(beginning, ":");
-        for(String word : splitted){
-            System.out.println("Word: '"+word+"'");
-        }
-
-        String word = "[[#import# $import$]]#enclosure#]]";
-        System.out.println("WORD: "+generator.replaceFirstAndLast(word,"[[","]]",""));
+    public static void main(String[] args) throws SQLException, IOException {
 
         Connection cnx = Connex.getConnection();
 
-        String tableSql = "SELECT * FROM Coco";
-        Statement stmt = cnx.createStatement();
-        //ResultSet res = stmt.executeQuery(tableSql);
-
-//        ListPrimaryKey(cnx, "groupe");
-
         cnx.close();
 
-        String input = "> votre commande";
-        Scanner scanner = new Scanner(input);
-        String commande;
-
-        while(true){
-            System.out.println("> ");
-            String ligne = scanner.nextLine();
-            if(ligne.equals("exit")){
-                break;
-            }
-        }
-
-        scanner.close();
+        System.out.println("Directory: "+System.getProperty("user.dir"));
     }
 
     public static void ListPrimaryKey(Connection cnx, String table) throws SQLException {

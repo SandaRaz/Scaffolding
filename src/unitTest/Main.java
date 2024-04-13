@@ -1,14 +1,11 @@
-package test;
+package unitTest;
 
 import cnx.Connex;
 import generator.Generator;
 import generator.DaoGenerator;
 
+import java.net.URL;
 import java.sql.Connection;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 public class Main {
     static Generator generator = new Generator();
@@ -23,20 +20,17 @@ public class Main {
         String viewFramework = "angular";
         String packageName = "Models";
 
-        String templatePath = "./src/template";
+        String templateFolder = "template";
 
         String test = "#extends#::";
         System.out.println(test.split("#extends#:")[1]);
         System.out.println("String");
 
-        String filePath = "./src/template/csharp/csharpCaracteristique.cfg";
-        String daoPath = "./src/template/csharp/csharpDAO.cfg";
-
-        generator.GenerateClass(cnx, templatePath, generatePath,tableName, language, packageName);
+        generator.GenerateClass(cnx, templateFolder, generatePath,tableName, language, packageName);
         System.out.println("-------------------------------------------");
-        generator.GenerateController(cnx,templatePath, generatePath,tableName,language,"Angular3.Controllers");
+        generator.GenerateController(cnx,templateFolder, generatePath,tableName,language,"Angular3.Controllers");
         System.out.println("-------------------------------------------");
-        generator.GenerateView(cnx, templatePath,generatePath,tableName,language,viewFramework);
+        generator.GenerateView(cnx, templateFolder,generatePath,tableName,language,viewFramework);
 
         System.out.println("======================================================================");
         String fileName = "Connex.cs";

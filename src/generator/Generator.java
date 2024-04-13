@@ -2,70 +2,32 @@ package generator;
 
 import cnx.Connex;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.lang.reflect.Type;
+import java.io.*;
+import java.net.URISyntaxException;
 import java.nio.file.*;
 import java.sql.*;
 import java.util.*;
-import java.util.Date;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Generator {
+    Methods methods;
     DaoGenerator daoGenerator;
+
+    public Methods getMethods() {
+        return methods;
+    }
+    public void setMethods(Methods methods) {
+        this.methods = methods;
+    }
+
     public Generator(){
         this.daoGenerator = new DaoGenerator(this);
+        this.methods = new Methods();
     }
 
     // --------------- FUNCTION -----------------
-    public String UpperFirstChar(String name){
-        return name.substring(0,1).toUpperCase() + name.substring(1).toLowerCase();
-    }
-    public String GetExtension(String filename){
-        String extension = "";
-        int i = filename.lastIndexOf('.');
-        if(i > 0){
-            extension = filename.substring(i + 1);
-        }
-        return extension;
-    }
-
-    public String GetIndentation(String ligne){
-        Pattern pattern = Pattern.compile("^(\\s+)");
-        Matcher matcher = pattern.matcher(ligne);
-        String indentation = "";
-        if(matcher.find()){
-            indentation = matcher.group(1);
-        }
-        return indentation;
-    }
-
-    public String RemoveSpace(String word){
-        return word.replace(" ","");
-    }
-    public String[] SplitInTwo(String word, String splitter){
-        String[] tab = new String[2];
-        int i = word.indexOf(splitter);
-        if(i > 0){
-            tab[0] = word.substring(0,i);
-            tab[1] = word.substring(i + 1);
-        }else{
-            tab[0] = word;
-            tab[1] = "";
-        }
-        return tab;
-    }
-    public String GetPrefixe(String word, int len){
-        if(word.length() < len){
-            return word.toUpperCase();
-        }else{
-            return word.substring(0, len).toUpperCase();
-        }
-    }
     public String GetVariableFromWord(String word, char variableIdentificator){
         String variable = "";
         AtomicBoolean isVariable = new AtomicBoolean(false);
@@ -117,10 +79,10 @@ public class Generator {
 
         return variables;
     }
-    public List<String> ReadCaracteristique(String opening, String caracteristiques, String closing, String filePath) throws IOException {
+    public List<String> ReadCaracteristique(String opening, String caracteristiques, String closing, String caracteristiquePath) throws IOException, URISyntaxException {
         List<String> lines = new ArrayList<>();
 
-        List<String> fileLines = Files.readAllLines(Paths.get(filePath));
+        List<String> fileLines = methods.readLines(caracteristiquePath);
         boolean add = false;
         for(String fileLine : fileLines){
             boolean foundCaracteristique = fileLine.equalsIgnoreCase(opening + caracteristiques + closing);
@@ -144,10 +106,10 @@ public class Generator {
         return lines;
     }
 
-    public List<String> ReadCaracteristiqueIncludeBlank(String opening, String caracteristiques, String closing, String filePath) throws IOException {
+    public List<String> ReadCaracteristiqueIncludeBlank(String opening, String caracteristiques, String closing, String filePath) throws IOException, URISyntaxException {
         List<String> lines = new ArrayList<>();
 
-        List<String> fileLines = Files.readAllLines(Paths.get(filePath));
+        List<String> fileLines = methods.readLines(filePath);
         boolean add = false;
         for(String fileLine : fileLines){
             boolean foundCaracteristique = fileLine.equalsIgnoreCase(opening + caracteristiques + closing);
@@ -171,10 +133,10 @@ public class Generator {
         return lines;
     }
 
-    public String GetSyntaxe(String syntaxe, String filePath) throws IOException {
+    public String GetSyntaxe(String syntaxe, String caracteristiquePath) throws IOException, URISyntaxException {
         String languageSyntaxe = "";
 
-        List<String> fileLines = this.ReadCaracteristique("[","Syntaxe","]", filePath);
+        List<String> fileLines = this.ReadCaracteristique("[","Syntaxe","]", caracteristiquePath);
         for(String fileLine : fileLines){
             if(fileLine.contains("#" + syntaxe + "#:")){
                 String[] splittedSyntaxe = fileLine.split("#" + syntaxe + "#:");
@@ -190,9 +152,9 @@ public class Generator {
         return languageSyntaxe;
     }
 
-    public Map<String,String> GetTypeDatabaseMatching(String templatePath, String language) throws Exception {
-        String caracteristiquesPath = templatePath + "/" + language.toLowerCase() + "/" + language.toLowerCase()+"Caracteristique.cfg";
-        List<String> typesMatching = ReadCaracteristique("[","TypeDatabaseMatching","]", caracteristiquesPath);
+    public Map<String,String> GetTypeDatabaseMatching(String templateFolder, String language) throws Exception {
+        String caracteristiquePath = templateFolder + "/" + language.toLowerCase() + "/" + language.toLowerCase()+"Caracteristique.cfg";
+        List<String> typesMatching = ReadCaracteristique("[","TypeDatabaseMatching","]", caracteristiquePath);
 
         Map<String,String> map = new HashMap<String,String>();
         for(String line : typesMatching){
@@ -204,8 +166,8 @@ public class Generator {
         return map;
     }
 
-    public Map<String,String> GetViewFormType(String caracteristiquesPath, String viewFramework) throws Exception {
-        List<String> typesMatching = ReadCaracteristique("[","ViewFormType","]", caracteristiquesPath);
+    public Map<String,String> GetViewFormType(String caracteristiquePath, String viewFramework) throws Exception {
+        List<String> typesMatching = ReadCaracteristique("[","ViewFormType","]", caracteristiquePath);
 
         Map<String,String> map = new HashMap<String,String>();
         for(String line : typesMatching){
@@ -217,7 +179,7 @@ public class Generator {
         return map;
     }
 
-    public List<TypeAndName> GetTableFields(Connection cnx, String templatePath, String language,String table) throws Exception {
+    public List<TypeAndName> GetTableFields(Connection cnx, String templateFolder, String language,String table) throws Exception {
         table = table.toLowerCase();
 
         List<TypeAndName> fields = new ArrayList<>();
@@ -228,7 +190,7 @@ public class Generator {
             closed = true;
         }
 
-        Map<String,String> fieldRealType = GetTypeDatabaseMatching(templatePath, language);
+        Map<String,String> fieldRealType = GetTypeDatabaseMatching(templateFolder, language);
 
         DatabaseMetaData databaseMetaData = cnx.getMetaData();
         ResultSet columns = databaseMetaData.getColumns(null,null,table,null);
@@ -244,7 +206,7 @@ public class Generator {
                 String fkColumnName = foreignKeys.getString("FKCOLUMN_NAME");
                 if(fkColumnName.equals(columnName)){
                     isForeignKey = true;
-                    referencedTable = UpperFirstChar(foreignKeys.getString("PKTABLE_NAME"));
+                    referencedTable = methods.UpperFirstChar(foreignKeys.getString("PKTABLE_NAME"));
                     break;
                 }
             }
@@ -286,8 +248,8 @@ public class Generator {
         return libelle;
     }
 
-    public Map<String, String> GetFieldRequiredImports(String fileCaracPath) throws IOException {
-        List<String> lines = this.ReadCaracteristique("[","ClassFieldImport","]", fileCaracPath);
+    public Map<String, String> GetFieldRequiredImports(String caracteristiquePath) throws IOException, URISyntaxException {
+        List<String> lines = this.ReadCaracteristique("[","ClassFieldImport","]", caracteristiquePath);
         Map<String,String> map = new HashMap<String,String>();
         for(String line : lines){
             String[] imports = line.split(":");
@@ -298,16 +260,16 @@ public class Generator {
         return map;
     }
 
-    public String GettersSetters(String templatePath, String language, TypeAndName field) throws IOException {
+    public String GettersSetters(String templateFolder, String language, TypeAndName field) throws IOException, URISyntaxException {
         StringBuilder validGetterSetter = new StringBuilder();
 
-        String caracteristiquePath = templatePath + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "Caracteristique.cfg";
+        String caracteristiquePath = templateFolder + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "Caracteristique.cfg";
         List<String> getsetLines = this.ReadCaracteristique("[","GetSet","]", caracteristiquePath);
 
         Map<String, String> variableMapping = new HashMap<>();
 
         String type = field.getColumnType();
-        String FieldName = UpperFirstChar(field.getColumnName());
+        String FieldName = methods.UpperFirstChar(field.getColumnName());
         String fieldname = field.getColumnName().toLowerCase();
 
         variableMapping.put("type",type);
@@ -331,8 +293,8 @@ public class Generator {
         return validGetterSetter.toString();
     }
 
-    public void MakeConstructor(String fileCaracPath, Map<String,String> mapppingVariables) throws IOException {
-        List<String> constructorLines = this.ReadCaracteristique("[","VoidConstructor","]", fileCaracPath);
+    public void MakeConstructor(String caracteristiquePath, Map<String,String> mapppingVariables) throws IOException, URISyntaxException {
+        List<String> constructorLines = this.ReadCaracteristique("[","VoidConstructor","]", caracteristiquePath);
 
         StringBuilder validLine = new StringBuilder();
         for(String line : constructorLines) {
@@ -353,7 +315,7 @@ public class Generator {
         mapppingVariables.put("VoidConstructor", validLine.toString());
     }
 
-    public String IdentifySyntaxe(String caracteristiquePath, String ligne, StringBuilder currentSyntaxe, AtomicBoolean isSyntaxe, char character, char equivalence) throws IOException {
+    public String IdentifySyntaxe(String caracteristiquePath, String ligne, StringBuilder currentSyntaxe, AtomicBoolean isSyntaxe, char character, char equivalence) throws IOException, URISyntaxException {
         String retour = ligne;
         if(isSyntaxe.get()){
             if(character == equivalence){
@@ -590,16 +552,18 @@ public class Generator {
             isClosed = true;
         }
 
-        // Test if table exist
+        DatabaseMetaData metaData = cnx.getMetaData();
+        ResultSet resultSet = metaData.getTables(null, null, tableName, null);
+        boolean exist = resultSet.next();
 
         if(isClosed){
             cnx.close();
         }
 
-        return false;
+        return exist;
     }
 
-    public void GenerateClass(Connection cnx, String templatePath, String generatePath, String tableName, String language, String packageName) throws Exception {
+    public void GenerateClass(Connection cnx, String templateFolder, String generatePath, String tableName, String language, String packageName) throws Exception {
         List<String> lignes = new ArrayList<>();
 
         boolean closed = false;
@@ -608,8 +572,15 @@ public class Generator {
             closed = true;
         }
 
-        String caracteristiquePath = templatePath + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "Caracteristique.cfg";
-        String buildPath = templatePath + File.separator + language.toLowerCase() + File.separator + "build";
+        System.out.println("    generating model for "+methods.UpperFirstChar(tableName)+" ...");
+
+        if(!TableExist(cnx, tableName)){
+            throw new Exception("Table "+tableName+" does not exist in "+Connex.getDbName());
+        }
+
+        String caracteristiquePath = templateFolder + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "Caracteristique.cfg";
+        String requiredFolderPath = templateFolder + "/" + language.toLowerCase() + "/" + "required";
+        String mappingFilePath = templateFolder + "/" + "mapping.cfg";
 
         Map<String, String> importsMap = this.GetFieldRequiredImports(caracteristiquePath);
 
@@ -617,7 +588,7 @@ public class Generator {
         List<String> listFields = new ArrayList<>();
         List<String> listGetSet = new ArrayList<>();
 
-        List<TypeAndName> fields = this.GetTableFields(cnx, templatePath, language, tableName);
+        List<TypeAndName> fields = this.GetTableFields(cnx, templateFolder, language, tableName);
         for(TypeAndName field : fields){
             String type = field.getColumnType();
             String name = field.getColumnName();
@@ -628,7 +599,7 @@ public class Generator {
                 }
             }
             listFields.add(type + " " + name);
-            listGetSet.add(this.GettersSetters(templatePath,language,field));
+            listGetSet.add(this.GettersSetters(templateFolder,language,field));
         }
         // Collection.addAll(Collection)
         listImports.addAll(this.ReadCaracteristique("[","DaoImport","]", caracteristiquePath));
@@ -639,11 +610,11 @@ public class Generator {
         mappingListes.put("GetSet", listGetSet);
         Map<String, String> mappingVariables = new HashMap<>();
         mappingVariables.put("package", packageName);
-        mappingVariables.put("class", UpperFirstChar(tableName));
-        daoGenerator.crudDAOToMap(cnx,tableName,templatePath, language, mappingVariables);
+        mappingVariables.put("class", methods.UpperFirstChar(tableName));
+        daoGenerator.crudDAOToMap(cnx,tableName,templateFolder, language, mappingVariables);
         this.MakeConstructor(caracteristiquePath, mappingVariables);
 
-        List<String> mappingLignes = Files.readAllLines(Paths.get(templatePath + "/mapping.cfg"));
+        List<String> mappingLignes = methods.readLines(mappingFilePath);
         for(String ligne : mappingLignes){
             AtomicBoolean isSyntaxe = new AtomicBoolean(false);
             AtomicBoolean isVariable = new AtomicBoolean(false);
@@ -685,17 +656,17 @@ public class Generator {
 
         // ------- Recuperation des fichiers requis -------
         List<String> requiredFiles = ReadCaracteristique("[","RequiredFiles","]",caracteristiquePath);
-        for(String file : requiredFiles){
-            String[] fileNames = file.split("[/\\\\]");
+        for(String requiredFile : requiredFiles){
+            String[] fileNames = requiredFile.split("[/\\\\]");
             String fileName = fileNames[fileNames.length - 1];
 
-            String filePathInBuild = "";
-            filePathInBuild = findFile(filePathInBuild,fileName,buildPath);
-            if(filePathInBuild.isBlank()){
-                throw new Exception("Cannot find requiredFile \""+file+"\" in buildPath \""+buildPath+"\"");
+            InputStream requiredFileIn = ClassLoader.getSystemResourceAsStream(requiredFolderPath + "/" + fileName);
+            if(requiredFileIn == null){
+                throw new Exception("Cannot find requiredFile \""+requiredFile+"\" in required files folder path \""+requiredFolderPath+"\"");
             }
 
-            String folderDestination = generatePath + File.separator + file;
+            String folderDestination = generatePath + File.separator + requiredFile;
+            // Enlever le nom du fichier de son chemin pour obtenir son repertoire parent
             folderDestination = folderDestination.replace(fileName,"");
             File folder = new File(folderDestination);
             if(!folder.exists()){
@@ -704,7 +675,7 @@ public class Generator {
 
             Path destinationPath = Path.of(folderDestination + File.separator + fileName);
             if(!Files.exists(destinationPath)){
-                Files.copy(Path.of(filePathInBuild), destinationPath);
+                methods.copyFile(requiredFileIn, (folderDestination + "/" + fileName));
             }
         }
         // --------------------------------------------------
@@ -719,7 +690,7 @@ public class Generator {
             if(!classDir.exists()){
                 boolean created = classDir.mkdir();
             }
-            File classFile = new File(classDir.getCanonicalPath() + File.separator + UpperFirstChar(tableName) + "." + extension);
+            File classFile = new File(classDir.getCanonicalPath() + File.separator + methods.UpperFirstChar(tableName) + "." + extension);
 //            System.out.println("Chemin d'acces: "+classDir.getCanonicalPath());
             if(!classFile.exists()){
                 boolean created = classFile.createNewFile();
@@ -739,7 +710,7 @@ public class Generator {
         }
     }
 
-    public void GenerateController(Connection cnx, String templatePath, String generatePath, String tableName, String language, String packageName) throws Exception {
+    public void GenerateController(Connection cnx, String templateFolder, String generatePath, String tableName, String language, String packageName) throws Exception {
         List<String> finalLignes = new ArrayList<>();
 
         boolean closed = false;
@@ -748,12 +719,18 @@ public class Generator {
             closed = true;
         }
 
-        String caracteristiquePath = templatePath + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "Caracteristique.cfg";
-        String controllerPath = templatePath + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "Controller.cfg";
+        System.out.println("    generating controller for "+methods.UpperFirstChar(tableName)+" ...");
+
+        if(!TableExist(cnx, tableName)){
+            throw new Exception("Table "+tableName+" does not exist in "+Connex.getDbName());
+        }
+
+        String caracteristiquePath = templateFolder + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "Caracteristique.cfg";
+        String controllerPath = templateFolder + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "Controller.cfg";
 
         List<String> listImports = this.ReadCaracteristique("[","ControllerImport","]", caracteristiquePath);
 
-        List<TypeAndName> fields = GetTableFields(cnx, templatePath, language, tableName);
+        List<TypeAndName> fields = GetTableFields(cnx, templateFolder, language, tableName);
         TypeAndName classPK = GetPrimaryKey(fields);
 
         Map<String, List<String>> mappingListes = new HashMap<>();
@@ -761,9 +738,9 @@ public class Generator {
 
         Map<String, String> mappingVariables = new HashMap<>();
         mappingVariables.put("package", packageName);
-        mappingVariables.put("class", UpperFirstChar(tableName));
+        mappingVariables.put("class", methods.UpperFirstChar(tableName));
         mappingVariables.put("classVariable", tableName.toLowerCase());
-        mappingVariables.put("classPrefixe", GetPrefixe(tableName, 3));
+        mappingVariables.put("classPrefixe", methods.GetPrefixe(tableName, 3));
         if(classPK != null){
             mappingVariables.put("classPK", classPK.getColumnName().toLowerCase());
         }else{
@@ -773,12 +750,12 @@ public class Generator {
         List<String> allSyntaxes = ReadCaracteristique("[","Syntaxe","]",caracteristiquePath);
         Map<String, String> mappingSyntaxes = new HashMap<>();
         for(String syntaxe : allSyntaxes){
-            String[] syntaxes = SplitInTwo(syntaxe, ":");
+            String[] syntaxes = methods.SplitInTwo(syntaxe, ":");
             mappingSyntaxes.put(syntaxes[0].replace("#",""), syntaxes[1]);
         }
 
 
-        List<String> controllerLignes = Files.readAllLines(Paths.get(controllerPath));
+        List<String> controllerLignes = methods.readLines(controllerPath);
         for(String ligne : controllerLignes){
             if(ligne.contains("classPK") && ligne.contains("classPrefixe") && classPK != null){
                 if(!classPK.getDatabaseType().contains("char")){
@@ -804,7 +781,7 @@ public class Generator {
             if(!controllerDir.exists()){
                 boolean created = controllerDir.mkdir();
             }
-            File classFile = new File(controllerDir.getCanonicalPath() + File.separator + UpperFirstChar(tableName) + "Controller." + extension);
+            File classFile = new File(controllerDir.getCanonicalPath() + File.separator + methods.UpperFirstChar(tableName) + "Controller." + extension);
 //            System.out.println("Chemin d'acces: "+controllerDir.getCanonicalPath());
             if(!classFile.exists()){
                 boolean created = classFile.createNewFile();
@@ -825,9 +802,9 @@ public class Generator {
     }
 
 // -------------------------- VIEW ---------------------------------
-    public String GetFieldFormEquivalence(Connection cnx ,TypeAndName field, String templatePath, String language, String viewFormsPath, List<String> inputSyntaxes, List<String> selectSyntaxes, Map<String,String> mappingViewFormType,Map<String,String> mappingVariables) throws Exception {
+    public String GetFieldFormEquivalence(Connection cnx ,TypeAndName field, String templateFolder, String language, String viewFormsPath, List<String> inputSyntaxes, List<String> selectSyntaxes, Map<String,String> mappingViewFormType,Map<String,String> mappingVariables) throws Exception {
         mappingVariables.put("field", field.getColumnName().toLowerCase());
-        mappingVariables.put("fieldFirstUpper", UpperFirstChar(field.getColumnName()));
+        mappingVariables.put("fieldFirstUpper", methods.UpperFirstChar(field.getColumnName()));
         mappingVariables.put("hideValue", "");
 
         List<String> tempForm = new ArrayList<>();
@@ -840,7 +817,7 @@ public class Generator {
                 tempForm.add(input);
             }
         }else if(field.isForeignKey()){
-            List<TypeAndName> fkFields = GetTableFields(cnx,templatePath,language,field.getReferencedTable());
+            List<TypeAndName> fkFields = GetTableFields(cnx,templateFolder,language,field.getReferencedTable());
 
             String fkClassVariable = field.getReferencedTable().toLowerCase();
             String fkClassPK = "";
@@ -888,43 +865,20 @@ public class Generator {
         return sbFormGroup.toString();
     }
 
-    public String findFile(String filePath, String fileName, String searchPath) throws IOException {
-        File searchPathFile = new File(searchPath);
-        File[] files = searchPathFile.listFiles();
-        assert files != null;
-        for(File file : files){
-            if(file.getName().trim().equalsIgnoreCase("node_modules")){
-                continue;
-            }
-
-            if(file.isDirectory()){
-                filePath = findFile(filePath, fileName, file.getCanonicalPath());
-            }else{
-                if(file.getName().trim().equalsIgnoreCase(fileName)){
-                    //System.out.println("FileName: "+file.getName());
-                    filePath = file.getCanonicalPath();
-                    break;
-                }
-            }
-        }
-
-        return filePath;
-    }
-
-    public void writeNewRouterModule(String appModulePath, String caracPath, List<String> newRouters) throws IOException {
-        List<String> routerCaracs = ReadCaracteristique("[","Router","]", caracPath);
+    public void writeNewRouterModule(File appModuleFile, String caracteristiquePath, List<String> newRouters) throws IOException, URISyntaxException {
+        List<String> routerCaracs = ReadCaracteristique("[","Router","]", caracteristiquePath);
         String beginning = "";
         String ending = "";
         for(String line : routerCaracs){
             if(line.trim().startsWith("router-beginning")){
-                beginning = SplitInTwo(line, ":")[1].trim();
+                beginning = methods.SplitInTwo(line, ":")[1].trim();
             }
             if(line.trim().startsWith("router-ending")){
-                ending = SplitInTwo(line, ":")[1].trim();
+                ending = methods.SplitInTwo(line, ":")[1].trim();
             }
         }
 
-        Path appModulePaths = Paths.get(appModulePath);
+        Path appModulePaths = appModuleFile.toPath();
         List<String> appModuleLines = Files.readAllLines(appModulePaths);
 
         List<String> existingRouter = new ArrayList<>();
@@ -935,10 +889,10 @@ public class Generator {
             if(begin){
                 existingRouter.add(appModuleLines.get(i).trim());
             }
-            if(RemoveSpace(appModuleLines.get(i)).equals(RemoveSpace(beginning))){
+            if(methods.RemoveSpace(appModuleLines.get(i)).equals(methods.RemoveSpace(beginning))){
                 begin = true;
             }
-            if(begin && RemoveSpace(appModuleLines.get(i+1)).equals(RemoveSpace(ending))){
+            if(begin && methods.RemoveSpace(appModuleLines.get(i+1)).equals(methods.RemoveSpace(ending))){
                 Pattern pattern = Pattern.compile("^(\\s+)");
                 Matcher matcher = pattern.matcher(appModuleLines.get(i));
                 String indentation = "";
@@ -956,7 +910,7 @@ public class Generator {
 
         // --- creer un fichier pour sauvegarder le precedent contenu du fichier de module ---
         //System.out.println("================= APP MODULE ================");
-        File appModuleDirectory = new File(appModulePath).getParentFile();
+        File appModuleDirectory = appModuleFile.getParentFile();
 //        long currentTime = System.currentTimeMillis();
         File tempAppModule = new File(appModuleDirectory.getCanonicalPath() + File.separator + ".tempAppModule");
         if(tempAppModule.createNewFile()){
@@ -974,20 +928,20 @@ public class Generator {
 
     }
 
-    public void writeNewContextProxyConfig(String proxyConfigPath, String caracPath, List<String> newRouters) throws IOException {
-        List<String> apiProxyCaracs = ReadCaracteristique("[","ApiProxy","]", caracPath);
+    public void writeNewContextProxyConfig(File proxyConfigFile, String caracteristiquePath, List<String> newRouters) throws IOException, URISyntaxException {
+        List<String> apiProxyCaracs = ReadCaracteristique("[","ApiProxy","]", caracteristiquePath);
         String beginning = "";
         String ending = "";
         for(String line : apiProxyCaracs){
             if(line.trim().startsWith("api-proxy-beginning")){
-                beginning = SplitInTwo(line, ":")[1].trim();
+                beginning = methods.SplitInTwo(line, ":")[1].trim();
             }
             if(line.trim().startsWith("api-proxy-ending")){
-                ending = SplitInTwo(line, ":")[1].trim();
+                ending = methods.SplitInTwo(line, ":")[1].trim();
             }
         }
 
-        Path proxyConfigPaths = Paths.get(proxyConfigPath);
+        Path proxyConfigPaths = proxyConfigFile.toPath();
         List<String> proxyConfigLines = Files.readAllLines(proxyConfigPaths);
 
         List<String> existingContext = new ArrayList<>();
@@ -998,10 +952,10 @@ public class Generator {
             if(begin){
                 existingContext.add(proxyConfigLines.get(i).trim());
             }
-            if(RemoveSpace(proxyConfigLines.get(i)).equals(RemoveSpace(beginning))){
+            if(methods.RemoveSpace(proxyConfigLines.get(i)).equals(methods.RemoveSpace(beginning))){
                 begin = true;
             }
-            if(begin && RemoveSpace(proxyConfigLines.get(i+1)).equals(RemoveSpace(ending))){
+            if(begin && methods.RemoveSpace(proxyConfigLines.get(i+1)).equals(methods.RemoveSpace(ending))){
                 Pattern pattern = Pattern.compile("^(\\s+)");
                 Matcher matcher = pattern.matcher(proxyConfigLines.get(i));
                 String indentation = "";
@@ -1018,7 +972,7 @@ public class Generator {
         }
 
         // --- creer un fichier pour sauvegarder le precedent contenu du fichier de module ---
-        File proxyConfigDirectory = new File(proxyConfigPath).getParentFile();
+        File proxyConfigDirectory = proxyConfigFile.getParentFile();
         File tempAppModule = new File(proxyConfigDirectory.getCanonicalPath() + File.separator + ".tempProxyConfig");
         if(tempAppModule.createNewFile()){
             for(String line : proxyConfigLines){
@@ -1034,10 +988,17 @@ public class Generator {
         // ----------------------------------------------
     }
 
-    public void GenerateView(Connection cnx, String templatePath, String generatePath, String tableName, String language,String viewFramework) throws Exception {
-        String viewPath = templatePath + File.separator + language.toLowerCase() + File.separator + "views" + File.separator + viewFramework.toLowerCase();
-        String caracteristiquePath = viewPath + File.separator + viewFramework.toLowerCase() + "Caracteristique.cfg";
-        String viewFormsPath = viewPath + File.separator + viewFramework.toLowerCase() + "Forms.cfg";
+    public void GenerateView(Connection cnx, String templateFolder, String generatePath, String tableName, String language,String viewFramework) throws Exception {
+        if(!TableExist(cnx, tableName)){
+            throw new Exception("Table "+tableName+" does not exist in "+Connex.getDbName());
+        }
+
+        String viewFolder = templateFolder + "/" + language.toLowerCase() + "/" + "views" + "/" + viewFramework.toLowerCase();
+
+        String caracteristiquePath = viewFolder + "/" + viewFramework.toLowerCase() + "Caracteristique.cfg";
+        String viewFormsPath = viewFolder + "/" + viewFramework.toLowerCase() + "Forms.cfg";
+
+        File generateFile = new File(generatePath);
 
         Optional<String> optionalViewPath = ReadCaracteristique("[","ViewPath","]",caracteristiquePath).stream().findFirst();
         String viewGenerationPath = "";
@@ -1049,9 +1010,9 @@ public class Generator {
         viewGenerationPath = generatePath + File.separator + viewGenerationPath.trim();
 //        System.out.println("VIEW GENERATION PATH: "+viewGenerationPath);
 
-        String className = UpperFirstChar(tableName);
+        String className = methods.UpperFirstChar(tableName);
         String classVariable = tableName.toLowerCase();
-        List<TypeAndName> fields = GetTableFields(cnx,(templatePath + File.separator + language.toLowerCase() + File.separator + "views"),viewFramework,tableName);
+        List<TypeAndName> fields = GetTableFields(cnx,(templateFolder + "/" + language.toLowerCase() + "/" + "views"),viewFramework,tableName);
         TypeAndName classPK = GetPrimaryKey(fields);
 
         Map<String,String> mappingVariables = new HashMap<String, String>();
@@ -1081,8 +1042,8 @@ public class Generator {
             fieldsLowerString.add(field.getColumnName().toLowerCase());
 
             if(field.isForeignKey()){
-                String fkLibelle = GetLibelle(GetTableFields(cnx,(templatePath + File.separator + language.toLowerCase() + File.separator + "views"),viewFramework,field.getReferencedTable()));
-                listFieldsString.add(UpperFirstChar(fkLibelle));
+                String fkLibelle = GetLibelle(GetTableFields(cnx,(templateFolder + "/" + language.toLowerCase() + "/" + "views"),viewFramework,field.getReferencedTable()));
+                listFieldsString.add(methods.UpperFirstChar(fkLibelle));
                 listFieldsLowerString.add(fkLibelle.toLowerCase());
             }else{
                 listFieldsString.add(field.getColumnName());
@@ -1106,7 +1067,7 @@ public class Generator {
 
         List<String> fieldsForms = new ArrayList<>();
         for(TypeAndName field : fields){
-            String fieldFormEquivalence = GetFieldFormEquivalence(cnx,field,templatePath,language,viewFormsPath,inputSyntaxes,selectSyntaxes,mappingViewFormType,mappingVariables);
+            String fieldFormEquivalence = GetFieldFormEquivalence(cnx,field,templateFolder,language,viewFormsPath,inputSyntaxes,selectSyntaxes,mappingViewFormType,mappingVariables);
             fieldsForms.add(fieldFormEquivalence);
             if(field.isForeignKey()){
                 foreignKeysRefs.add(field.getReferencedTable().toLowerCase());
@@ -1163,14 +1124,11 @@ public class Generator {
                 }
             }
         }
-        String routerModulePath = "";
-        routerModulePath = findFile(routerModulePath,routerModuleFileName,generatePath);
-        if(routerRequired && routerModulePath.isBlank()){
+
+        File routerModuleFile = methods.findFile(generateFile, routerModuleFileName);
+        if(routerModuleFile == null){
             throw new Exception("Cannot find router module file \""+routerModuleFileName+"\" in \""+generatePath+"\" \n     Advice: disable Router or verify 'router-module-file' in caracteristique or else verify file existence");
-        }else{
-            //System.out.println("ROUTER FILE PATH: "+routerModulePath);
         }
-        // ------------------------------------------------
         // ----------- Si un on a besoin d'ecrire les routes dans un Proxy ----------
         List<String> proxyConfigs = ReadCaracteristique("[","ApiProxy","]", caracteristiquePath);
 
@@ -1189,19 +1147,17 @@ public class Generator {
                 }
             }
         }
-        String apiProxyPath = "";
-        apiProxyPath = findFile(apiProxyPath,apiProxyFileName,generatePath);
-        if(apiProxyRequired && apiProxyPath.isBlank()){
+
+        File apiProxyConfigFile = methods.findFile(generateFile, apiProxyFileName);
+        if(apiProxyConfigFile == null){
             throw new Exception("Cannot find api proxy config file \""+apiProxyFileName+"\" in \""+generatePath+"\" \n     Advice: disable Proxy Config or verify 'api-proxy-file' in caracteristique or else verify file existence");
-        }else{
-            //System.out.println("PROXY-CONF FILE PATH: "+apiProxyPath);
         }
         // --------------------------------------------------------------------------
 
         for(String crud : listCrud){
             mappingVariables.put("crud", crud.toLowerCase());
-            mappingVariables.put("crudUpperFirst", UpperFirstChar(crud));
-            String crudTemplatePath = viewPath + File.separator + "crud" + File.separator + crud + "Template.cfg";
+            mappingVariables.put("crudUpperFirst", methods.UpperFirstChar(crud));
+            String crudTemplatePath = viewFolder + "/" + "crud" + "/" + crud + "Template.cfg";
 
 
             // *** EXECUTER LA COMMANDE commandToCreateFile ICI ***
@@ -1213,7 +1169,7 @@ public class Generator {
                 cdProcessBuilder.directory(new File(viewGenerationPath));
                 Process cdProcess = cdProcessBuilder.start();
                 cdProcess.waitFor();
-                System.out.println(cdProcessBuilder.command().get(2));
+                //System.out.println(cdProcessBuilder.command().get(2));
 
                 int cdExitCode = cdProcess.exitValue();
                 if(cdExitCode != 0){
@@ -1244,8 +1200,8 @@ public class Generator {
                 fileName = ReplaceSimpleVariable(fileName,mappingVariables);
 //                System.out.println("-----------"+fileName+"-----------");
 
-                File crudTemplate = new File(crudTemplatePath);
-                if(crudTemplate.exists()){
+                InputStream crudTemplateIn = ClassLoader.getSystemResourceAsStream(crudTemplatePath);
+                if(crudTemplateIn != null){
                     List<String> fileTemplateContents = ReadCaracteristiqueIncludeBlank("[[", fileType, "]]", crudTemplatePath);
                     for(String templateLine : fileTemplateContents){
                         templateLine = ReplaceVerticaleVariable(templateLine,fields,mappingHV,"[","]");
@@ -1257,16 +1213,14 @@ public class Generator {
                 }
 
                 // *** ECRIRE TOUS replacedLignes DANS LE FICHIER TS ET HTML ***
-                String filePathResult = "";
-                filePathResult = findFile(filePathResult,fileName,viewGenerationPath);
-                if(!filePathResult.isBlank()){
-                    File fileResult = new File(filePathResult);
-                    Files.write(fileResult.toPath(), "".getBytes(), StandardOpenOption.TRUNCATE_EXISTING);
-                    for(String line : replacedLignes){
-                        Files.write(fileResult.toPath(), (line + System.lineSeparator()).getBytes(), StandardOpenOption.APPEND);
-                    }
-                }else{
+                File componentFile = methods.findFile(generateFile, fileName);
+                if(componentFile == null){
                     throw new Exception("Cannot find "+fileName+" in "+viewGenerationPath+" to write in");
+                }else{
+                    Files.write(componentFile.toPath(), "".getBytes(), StandardOpenOption.TRUNCATE_EXISTING);
+                    for(String line : replacedLignes){
+                        Files.write(componentFile.toPath(), (line + System.lineSeparator()).getBytes(), StandardOpenOption.APPEND);
+                    }
                 }
             }
 
@@ -1278,7 +1232,7 @@ public class Generator {
                     listRouterPaths.add(ReplaceSimpleVariable(routerPath, mappingVariables));
                 }
                 // ----- ECRIRE DANS LE FICHIER CIBLE -----
-                writeNewRouterModule(routerModulePath, caracteristiquePath, listRouterPaths);
+                writeNewRouterModule(routerModuleFile, caracteristiquePath, listRouterPaths);
             }
             if(apiProxyRequired){
                 List<String> listContextProxyTemplate = ReadCaracteristique("[","ListContext","]", caracteristiquePath);
@@ -1287,11 +1241,10 @@ public class Generator {
                     listContextProxy.add(ReplaceSimpleVariable(context, mappingVariables));
                 }
                 // ----- ECRIRE DANS LE FICHIER CIBLE -----
-                writeNewContextProxyConfig(apiProxyPath, caracteristiquePath, listContextProxy);
+                writeNewContextProxyConfig(apiProxyConfigFile, caracteristiquePath, listContextProxy);
             }
             // ------------------------------------------------------------------------------------------------
         }
-
-        System.out.println("\n >>> Done !");
+        System.out.println("\n      Done !");
     }
 }

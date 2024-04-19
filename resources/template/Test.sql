@@ -11,6 +11,14 @@ CREATE TABLE Test(
 	dec decimal
 );
 
+CREATE TABLE Account(
+	id varchar(7) primary key not null,
+	username varchar(30),
+	email varchar(50),
+	password varchar(50)
+);
+CREATE SEQUENCE account_sequence START 1;
+
 
 CREATE TABLE Promotion(
 	id varchar(7) primary key not null,

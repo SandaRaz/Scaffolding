@@ -7,14 +7,12 @@ import java.io.InputStream;
 import java.net.URL;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
+import java.util.*;
 
 public class Core {
     String defaultPackage = "";
     String defaultConrollerPackage = "";
+    String authTable = "";
     private final Generator generator;
 
     public String getDefaultPackage(){
@@ -30,6 +28,14 @@ public class Core {
 
     public void setDefaultConrollerPackage(String defaultConrollerPackage) {
         this.defaultConrollerPackage = defaultConrollerPackage;
+    }
+
+    public String getAuthTable() {
+        return authTable;
+    }
+
+    public void setAuthTable(String authTable) {
+        this.authTable = authTable;
     }
 
     public Core(){
@@ -63,6 +69,39 @@ public class Core {
     public boolean EndTask(String command){
         String trimmedCommand = command.toLowerCase().trim();
         return trimmedCommand.equals("done") || trimmedCommand.equals("quit") || trimmedCommand.equals("exit");
+    }
+
+    public static double compareToDefaultCommande(String defaultCommande, String commande){
+        List<String> syntaxes = Arrays.stream(defaultCommande.toLowerCase().split("\\s+"))
+                .filter(cmd -> !cmd.startsWith("$") && !cmd.endsWith("$"))
+                .toList();
+        String[] commandeSplitted = commande.toLowerCase().split("\\s+");
+
+        Map<String, Integer> occurences = new HashMap<>();
+        for(String snt : syntaxes){
+            occurences.merge(snt, 1, Integer::sum);
+        }
+        Map<String,Integer> similaires = new HashMap<>();
+        for(String cmd : commandeSplitted){
+            if(syntaxes.contains(cmd)){
+                similaires.merge(cmd, 1, Integer::sum);
+            }
+        }
+
+        return (double) similaires.size() / (occurences.size() + commandeSplitted.length);
+    }
+
+    public static String matchedCommande(String commande, String[] dcs){
+        double[] similarities = Arrays.stream(dcs)
+                .mapToDouble(dc -> compareToDefaultCommande(dc, commande))
+                .toArray();
+        int indiceMax = 0;
+        for(int i = 1; i<similarities.length; i++){
+            if(similarities[i] > similarities[indiceMax]){
+                indiceMax = i;
+            }
+        }
+        return dcs[indiceMax];
     }
 
     // set default package Models : set default package $yourPackage$
@@ -103,21 +142,55 @@ public class Core {
                 }
                 this.defaultConrollerPackage = mapCommand.get("yourControllerPackage");
             }
-        } else if(unspacedCommand.startsWith("generate")){
-            String defaultCommand = "generate $tableName$ crud for $backend$ with $frontend$";
+        } else if(unspacedCommand.startsWith("setauthtable")){
+            String defaultCommand = "set auth table $yourAuthTable$";
             String[] tabDefaultCommand = defaultCommand.split("\\s+");
             String[] tabCommand = command.split("\\s+");
 
-            if(CommandValid(tabDefaultCommand, tabCommand)){
+            if(CommandValid(tabDefaultCommand, tabCommand)) {
+                for (int i = 0; i < tabDefaultCommand.length; i++) {
+                    if (isVariable(tabDefaultCommand[i])) {
+                        mapCommand.put(tabDefaultCommand[i].replace("$", ""), tabCommand[i]);
+                    }
+                }
+                this.authTable = mapCommand.get("yourAuthTable");
+            }
+        } else if(unspacedCommand.startsWith("generate")){
+            String[] defaultCommands = {
+                "generate $tableName$ crud for $backend$ with $frontend$",
+                "generate $tableName$ crud for $backend$ with $frontend$ securized",
+                "generate $tableName$ crud for $backend$ with $frontend$ auth column $usermail$ and $key$",
+                "generate $tableName$ crud for $backend$ with $frontend$ securized auth column $usermail$ and $key$"
+            };
+            String defaultCommand = matchedCommande(command, defaultCommands);
+
+            LoginInfo loginInfo = new LoginInfo(false,"","",false);
+
+            String[] tabDefaultCommand = defaultCommand.split("\\s+");
+            String[] tabUserCommand = command.split("\\s+");
+
+            if(CommandValid(tabDefaultCommand, tabUserCommand)){
                 for(int i=0; i<tabDefaultCommand.length; i++){
                     if(isVariable(tabDefaultCommand[i])){
-                        mapCommand.put(tabDefaultCommand[i].replace("$",""), tabCommand[i]);
+                        mapCommand.put(tabDefaultCommand[i].replace("$",""), tabUserCommand[i]);
                     }
                 }
 
                 String tableName = mapCommand.get("tableName");
                 String language = mapCommand.get("backend");
                 String view = mapCommand.get("frontend");
+
+                if(defaultCommand.toLowerCase().contains("securized")){
+                    loginInfo.setNeedAuth(true);
+                }
+                if(defaultCommand.toLowerCase().contains("auth column")){
+                    String usermail = mapCommand.get("usermail");
+                    String key = mapCommand.get("key");
+
+                    loginInfo.setLogin(true);
+                    loginInfo.setUsermail(usermail);
+                    loginInfo.setKey(key);
+                }
 
                 String templateFolder = "template";
                 String generatePath = System.getProperty("user.dir");
@@ -128,18 +201,21 @@ public class Core {
                     System.out.println("Default package is empty. Run: set default package $yourPackage$");
                 }else if (this.defaultConrollerPackage.isBlank()){
                     System.out.println("Default controller package is empty. Run: set default controller package $yourPackage$");
+                }else if (this.authTable.isBlank()){
+                    System.out.println("Authentification table is empty. Run: set auth table $yourTable$");
                 }else{
                     System.out.println("    > Default package: "+this.defaultPackage);
                     System.out.println("    > Default controller package: "+this.defaultConrollerPackage);
+                    System.out.println("    > Default authentification table: "+this.authTable);
 
                     // Generating Model
-                    this.generator.GenerateClass(cnx,templateFolder,generatePath,tableName,language,this.defaultPackage);
+                    this.generator.GenerateClass(cnx,templateFolder,generatePath,tableName,language,this.defaultPackage,loginInfo);
                     System.out.println("  -> Model generated");
                     // Generating Controller
-                    this.generator.GenerateController(cnx,templateFolder,generatePath,tableName,language,this.defaultConrollerPackage);
+                    this.generator.GenerateController(cnx,templateFolder,generatePath,tableName,language,this.defaultConrollerPackage,loginInfo);
                     System.out.println("  -> Controller generated");
                     // Generating View
-                    this.generator.GenerateView(cnx, templateFolder, generatePath, tableName, language, view);
+                    this.generator.GenerateView(cnx, templateFolder, generatePath, tableName, language, view, loginInfo, this.authTable);
 
                 }
             }

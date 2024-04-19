@@ -3,6 +3,7 @@ package unitTest;
 import cnx.Connex;
 import generator.Generator;
 import generator.DaoGenerator;
+import generator.LoginInfo;
 
 import java.net.URL;
 import java.sql.Connection;
@@ -19,6 +20,7 @@ public class Main {
         String language = "csharp";
         String viewFramework = "angular";
         String packageName = "Models";
+        String authTable = "account";
 
         String templateFolder = "template";
 
@@ -26,11 +28,12 @@ public class Main {
         System.out.println(test.split("#extends#:")[1]);
         System.out.println("String");
 
-        generator.GenerateClass(cnx, templateFolder, generatePath,tableName, language, packageName);
+        LoginInfo loginInfo = new LoginInfo(true, "email", "password",false);
+        generator.GenerateClass(cnx, templateFolder, generatePath,tableName, language, packageName, loginInfo);
         System.out.println("-------------------------------------------");
-        generator.GenerateController(cnx,templateFolder, generatePath,tableName,language,"Angular3.Controllers");
+        generator.GenerateController(cnx,templateFolder, generatePath,tableName,language,"Angular3.Controllers", loginInfo);
         System.out.println("-------------------------------------------");
-        generator.GenerateView(cnx, templateFolder,generatePath,tableName,language,viewFramework);
+        generator.GenerateView(cnx, templateFolder,generatePath,tableName,language,viewFramework, loginInfo, authTable);
 
         System.out.println("======================================================================");
         String fileName = "Connex.cs";

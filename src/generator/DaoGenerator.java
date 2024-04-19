@@ -155,8 +155,12 @@ public class DaoGenerator {
         return horizontalLigne;
     }
 
-    public void crudDAOToMap(Connection cnx, String tableName, String templateFolder, String language, Map<String, String> mappingVariable) throws Exception {
+    public void crudDAOToMap(Connection cnx, String tableName, String templateFolder, String language, Map<String, String> mappingVariable, LoginInfo loginInfo) throws Exception {
         List<String> daoFunctions = this.ListDaoFunctions(templateFolder, language);
+        if(!loginInfo.isLogin()){
+            daoFunctions.remove("Login");
+            mappingVariable.put("Login", "");
+        }
 
         String daoPath = templateFolder + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "DAO.cfg";
 
@@ -185,6 +189,13 @@ public class DaoGenerator {
 
         TypeAndName classPK = generator.GetPrimaryKey(fields);
 
+        String loginUsermail = "";
+        String loginKey = "";
+        if(loginInfo.isLogin()){
+            loginUsermail = loginInfo.getUsermail();
+            loginKey = loginInfo.getKey();
+        }
+
         Map<String, String> mappingVariableDao = new HashMap<>();
         mappingVariableDao.put("className", className);
         mappingVariableDao.put("classVariable", classVariable);
@@ -194,6 +205,8 @@ public class DaoGenerator {
         }else{
             mappingVariableDao.put("classPK", "id");
         }
+        mappingVariableDao.put("usermail", loginUsermail);
+        mappingVariableDao.put("key", loginKey);
 
         Map<String, List<String>> mappingListVariableDao = new HashMap<>();
         mappingListVariableDao.put("field", fieldReplacements);

@@ -563,7 +563,7 @@ public class Generator {
         return exist;
     }
 
-    public void GenerateClass(Connection cnx, String templateFolder, String generatePath, String tableName, String language, String packageName) throws Exception {
+    public void GenerateClass(Connection cnx, String templateFolder, String generatePath, String tableName, String language, String packageName, LoginInfo loginInfo) throws Exception {
         List<String> lignes = new ArrayList<>();
 
         boolean closed = false;
@@ -611,7 +611,7 @@ public class Generator {
         Map<String, String> mappingVariables = new HashMap<>();
         mappingVariables.put("package", packageName);
         mappingVariables.put("class", methods.UpperFirstChar(tableName));
-        daoGenerator.crudDAOToMap(cnx,tableName,templateFolder, language, mappingVariables);
+        daoGenerator.crudDAOToMap(cnx,tableName,templateFolder, language, mappingVariables, loginInfo);
         this.MakeConstructor(caracteristiquePath, mappingVariables);
 
         List<String> mappingLignes = methods.readLines(mappingFilePath);
@@ -651,7 +651,7 @@ public class Generator {
         }
 
 //        for(String ligne : lignes){
-            //System.out.println(ligne);
+//            System.out.println(ligne);
 //        }
 
         // ------- Recuperation des fichiers requis -------
@@ -710,7 +710,39 @@ public class Generator {
         }
     }
 
-    public void GenerateController(Connection cnx, String templateFolder, String generatePath, String tableName, String language, String packageName) throws Exception {
+    public String getLoginFunction(String templateFolder, String tableName, String language, Map<String,String> mappingVariables) throws IOException {
+        String loginFunctionPath = templateFolder + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "LoginFunction.cfg";
+
+        StringBuilder replaced = new StringBuilder();
+        List<String> lignes = methods.readLines(loginFunctionPath);
+        for(String ligne : lignes){
+            ligne = ReplaceSimpleVariable(ligne, mappingVariables);
+            if(lignes.indexOf(ligne) == lignes.size()-1){
+                replaced.append(ligne);
+            }else{
+                replaced.append(ligne).append("\n");
+            }
+        }
+
+        return replaced.toString();
+    }
+    public String getAuthentificationChecking(String caracteristiquePath, Map<String,String> mappingVariables) throws IOException, URISyntaxException {
+        List<String> authCheckLines = ReadCaracteristique("[","AuthChecking","]", caracteristiquePath);
+
+        StringBuilder replaced = new StringBuilder();
+        for(String ligne : authCheckLines){
+            ligne = ReplaceSimpleVariable(ligne, mappingVariables);
+            if(authCheckLines.indexOf(ligne) == authCheckLines.size()-1){
+                replaced.append(ligne);
+            }else{
+                replaced.append(ligne).append("\n");
+            }
+        }
+
+        return replaced.toString();
+    }
+
+    public void GenerateController(Connection cnx, String templateFolder, String generatePath, String tableName, String language, String packageName, LoginInfo loginInfo) throws Exception {
         List<String> finalLignes = new ArrayList<>();
 
         boolean closed = false;
@@ -746,6 +778,11 @@ public class Generator {
         }else{
             mappingVariables.put("classPK", "id");
         }
+        String loginLines = "";
+        if(loginInfo.isLogin()){
+            loginLines = getLoginFunction(templateFolder, tableName, language, mappingVariables);
+        }
+        mappingVariables.put("LoginFunction", loginLines);
 
         List<String> allSyntaxes = ReadCaracteristique("[","Syntaxe","]",caracteristiquePath);
         Map<String, String> mappingSyntaxes = new HashMap<>();
@@ -769,6 +806,10 @@ public class Generator {
 
             finalLignes.add(ligne);
         }
+
+//        for(String ligne : finalLignes){
+//            System.out.println(ligne);
+//        }
 
         // ------- Creation et ecriture dans un fichier -------
         Optional<String> optionalExtension = ReadCaracteristique("[","Extension","]",caracteristiquePath).stream().findFirst();
@@ -988,7 +1029,7 @@ public class Generator {
         // ----------------------------------------------
     }
 
-    public void GenerateView(Connection cnx, String templateFolder, String generatePath, String tableName, String language,String viewFramework) throws Exception {
+    public void GenerateView(Connection cnx, String templateFolder, String generatePath, String tableName, String language,String viewFramework, LoginInfo loginInfo, String authTable) throws Exception {
         if(!TableExist(cnx, tableName)){
             throw new Exception("Table "+tableName+" does not exist in "+Connex.getDbName());
         }
@@ -1015,6 +1056,21 @@ public class Generator {
         List<TypeAndName> fields = GetTableFields(cnx,(templateFolder + "/" + language.toLowerCase() + "/" + "views"),viewFramework,tableName);
         TypeAndName classPK = GetPrimaryKey(fields);
 
+        String loginUsermail = "";
+        String loginUsermailUpperFirst = "";
+        String loginKey = "";
+        String loginKeyUpperFirst = "";
+        if(loginInfo.isLogin()){
+            loginUsermail = loginInfo.getUsermail();
+            loginKey = loginInfo.getKey();
+            loginUsermailUpperFirst = methods.UpperFirstChar(loginUsermail);
+            loginKeyUpperFirst = methods.UpperFirstChar(loginKey);
+        }
+        String authTableUpperFirst = "";
+        if(!authTable.isBlank()){
+            authTableUpperFirst = methods.UpperFirstChar(authTable);
+        }
+
         Map<String,String> mappingVariables = new HashMap<String, String>();
         mappingVariables.put("class", className);
         mappingVariables.put("classVariable", classVariable);
@@ -1024,6 +1080,17 @@ public class Generator {
         }else{
             mappingVariables.put("classPK", "id");
         }
+        mappingVariables.put("authTableVariable", authTable.toLowerCase());
+        mappingVariables.put("authTable", authTableUpperFirst);
+        mappingVariables.put("usermail", loginUsermail);
+        mappingVariables.put("usermailFirstUpper", loginUsermailUpperFirst);
+        mappingVariables.put("key", loginKey);
+        mappingVariables.put("keyFirstUpper", loginKeyUpperFirst);
+        String authCheckLines = "";
+        if(loginInfo.isNeedAuth()){
+            authCheckLines = getAuthentificationChecking(caracteristiquePath, mappingVariables);
+        }
+        mappingVariables.put("authChecking", authCheckLines);
 
         Map<String,List<String>> mappingHV = new HashMap<String, List<String>>();
 
@@ -1080,6 +1147,9 @@ public class Generator {
         // --------------------------------------------
 
         List<String> listCrud = ReadCaracteristique("[", "ListCRUD", "]", caracteristiquePath);
+        if(loginInfo.isLogin()){
+            listCrud.add("Login");
+        }
         List<String> filesToCreates = ReadCaracteristique("[", "FileToCreate", "]", caracteristiquePath);
 
 
@@ -1208,7 +1278,7 @@ public class Generator {
                         templateLine = ReplaceSimpleVariable(templateLine,mappingVariables);
 
                         replacedLignes.add(templateLine);
-                        //System.out.println(templateLine);
+//                        System.out.println(templateLine);
                     }
                 }
 

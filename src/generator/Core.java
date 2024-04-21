@@ -3,8 +3,6 @@ package generator;
 import cnx.Connex;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.*;
@@ -113,7 +111,7 @@ public class Core {
             isClosed = true;
         }
 
-        String unspacedCommand = generator.getMethods().RemoveSpace(command.toLowerCase());
+        String unspacedCommand = generator.getMethods().RemoveSpaceBetween(command.toLowerCase());
 
         Map<String,String> mapCommand = new HashMap<>();
         if(unspacedCommand.startsWith("setdefaultpackage")){

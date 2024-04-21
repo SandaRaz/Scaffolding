@@ -105,7 +105,6 @@ public class Generator {
 
         return lines;
     }
-
     public List<String> ReadCaracteristiqueIncludeBlank(String opening, String caracteristiques, String closing, String filePath) throws IOException, URISyntaxException {
         List<String> lines = new ArrayList<>();
 
@@ -131,6 +130,17 @@ public class Generator {
         }
 
         return lines;
+    }
+
+    public String ReadCaracAttribut(String attribut, List<String> caracteristiques){
+        String value = "";
+        for(String attrib : caracteristiques){
+            if(attrib.toLowerCase().trim().startsWith(attribut.toLowerCase())){
+                value = methods.SplitInTwo(attrib, ":")[1];
+                break;
+            }
+        }
+        return value;
     }
 
     public String GetSyntaxe(String syntaxe, String caracteristiquePath) throws IOException, URISyntaxException {
@@ -930,16 +940,11 @@ public class Generator {
             if(begin){
                 existingRouter.add(appModuleLines.get(i).trim());
             }
-            if(methods.RemoveSpace(appModuleLines.get(i)).equals(methods.RemoveSpace(beginning))){
+            if(methods.RemoveSpaceBetween(appModuleLines.get(i)).equals(methods.RemoveSpaceBetween(beginning))){
                 begin = true;
             }
-            if(begin && methods.RemoveSpace(appModuleLines.get(i+1)).equals(methods.RemoveSpace(ending))){
-                Pattern pattern = Pattern.compile("^(\\s+)");
-                Matcher matcher = pattern.matcher(appModuleLines.get(i));
-                String indentation = "";
-                if(matcher.find()){
-                    indentation = matcher.group(1);
-                }
+            if(begin && methods.RemoveSpaceBetween(appModuleLines.get(i+1)).equals(methods.RemoveSpaceBetween(ending))){
+                String indentation = methods.getIndentation(appModuleLines.get(i));
                 for(String router : newRouters){
                     if(!existingRouter.contains(router.trim())){
                         finalLines.add(indentation + router);
@@ -993,16 +998,11 @@ public class Generator {
             if(begin){
                 existingContext.add(proxyConfigLines.get(i).trim());
             }
-            if(methods.RemoveSpace(proxyConfigLines.get(i)).equals(methods.RemoveSpace(beginning))){
+            if(methods.RemoveSpaceBetween(proxyConfigLines.get(i)).equals(methods.RemoveSpaceBetween(beginning))){
                 begin = true;
             }
-            if(begin && methods.RemoveSpace(proxyConfigLines.get(i+1)).equals(methods.RemoveSpace(ending))){
-                Pattern pattern = Pattern.compile("^(\\s+)");
-                Matcher matcher = pattern.matcher(proxyConfigLines.get(i));
-                String indentation = "";
-                if(matcher.find()){
-                    indentation = matcher.group(1);
-                }
+            if(begin && methods.RemoveSpaceBetween(proxyConfigLines.get(i+1)).equals(methods.RemoveSpaceBetween(ending))){
+                String indentation = methods.getIndentation(proxyConfigLines.get(i));
                 for(String router : newRouters){
                     if(!existingContext.contains(router.trim())){
                         finalLines.add(indentation + router);
@@ -1027,6 +1027,130 @@ public class Generator {
             Files.write(proxyConfigPaths, (line + System.lineSeparator()).getBytes(), StandardOpenOption.APPEND);
         }
         // ----------------------------------------------
+    }
+
+    public void ManageMenu(String templateFolder,String generatePath, String language, String viewFramework, Map<String,String> mappingVariables, List<String> cruds, List<String> menuCaracteristiques, List<String> menuConfigs) throws Exception {
+        String viewFolder = templateFolder + "/" + language.toLowerCase() + "/" + "views" + "/" + viewFramework.toLowerCase();
+        String caracteristiquePath = viewFolder + "/" + viewFramework.toLowerCase() + "Caracteristique.cfg";
+
+        Optional<String> optionalViewPath = ReadCaracteristique("[","ViewPath","]",caracteristiquePath).stream().findFirst();
+        String viewGenerationPath = "";
+        if(optionalViewPath.isPresent()){
+            viewGenerationPath = generatePath + File.separator + optionalViewPath.get();
+        }else{
+            throw new Exception("[ViewPath] from "+viewFramework+" caracteristic file maybe missing ?");
+        }
+
+        String menuConfigPath = viewFolder + "/" + ReadCaracAttribut("menu-config-path", menuCaracteristiques);
+
+        String fileToCreateInClientApp = ReadCaracAttribut("menu-in-client-app", menuConfigs);
+        fileToCreateInClientApp = ReplaceSimpleVariable(fileToCreateInClientApp, mappingVariables);
+
+        List<String> menuTemplateContent = methods.readLines(viewFolder + "/" + ReadCaracAttribut("menu-in-template", menuConfigs));
+
+        String requireCreateFileCommande = ReadCaracAttribut("command-required", menuConfigs);
+        if(requireCreateFileCommande.equalsIgnoreCase("true")){
+            String currentCommand = ReadCaracAttribut("command-file-generation", menuConfigs);
+            currentCommand = ReplaceSimpleVariable(currentCommand, mappingVariables);
+
+            System.out.println(currentCommand + " ...");
+            ProcessBuilder genProcessBuilder = new ProcessBuilder("cmd.exe", "/c", currentCommand);
+            genProcessBuilder.directory(new File(viewGenerationPath));
+            Process genProcess = genProcessBuilder.start();
+            genProcess.waitFor();
+
+            int genExitCode = genProcess.exitValue();
+            File fileInClientApp = methods.findFile(new File(viewGenerationPath), fileToCreateInClientApp);
+            if(genExitCode != 0){
+                System.out.println("    "+currentCommand+" exit code "+genExitCode);
+            }else{
+                Files.write(fileInClientApp.toPath(), "".getBytes(), StandardOpenOption.TRUNCATE_EXISTING);
+                for(String line : menuTemplateContent){
+                    Files.write(fileInClientApp.toPath(), (line + System.lineSeparator()).getBytes(), StandardOpenOption.APPEND);
+                }
+            }
+        }else{
+            File fileInClientApp = new File(viewGenerationPath + File.separator + fileToCreateInClientApp);
+            if(!fileInClientApp.exists()){
+                boolean parentCreated = fileInClientApp.getParentFile().mkdirs();
+                boolean fileCreated = fileInClientApp.createNewFile();
+
+                for(String line : menuTemplateContent){
+                    Files.write(fileInClientApp.toPath(), (line + System.lineSeparator()).getBytes(), StandardOpenOption.APPEND);
+                }
+            }
+        }
+
+        boolean requireMenuRouter = ReadCaracAttribut("menu-router-required", menuConfigs).equalsIgnoreCase("true");
+        if(requireMenuRouter){
+            String menuRouterLink = ReadCaracAttribut("menu-router-link", menuConfigs);
+            menuRouterLink = ReplaceSimpleVariable(menuRouterLink, mappingVariables);
+            List<String> newRouters = List.of(new String[]{menuRouterLink});
+
+            List<String> routerConfigs = ReadCaracteristique("[","Router","]",caracteristiquePath);
+            String routerModuleFileString = ReadCaracAttribut("router-module-file",routerConfigs);
+            File routerModuleFile = methods.findFile(new File(viewGenerationPath), routerModuleFileString);
+
+            if(routerModuleFile != null){
+                writeNewRouterModule(routerModuleFile, caracteristiquePath, newRouters);
+            }
+        }
+
+        List<String> rowsChild = ReadCaracteristique("[","NewRowChild","]", menuConfigPath);
+        List<String> colsChild = ReadCaracteristique("[","NewColChildren","]", menuConfigPath);
+
+        StringBuilder colChildrenSB = new StringBuilder();
+        String defaultIndentation = methods.getDefaultIndentation(rowsChild);
+        for(String crud : cruds){
+            mappingVariables.put("crud", crud.toLowerCase());
+            mappingVariables.put("crudUpperFirst", methods.UpperFirstChar(crud));
+            for(String line : colsChild){
+                String replacedLine = ReplaceSimpleVariable(line, mappingVariables);
+                if(colChildrenSB.isEmpty()){
+                    colChildrenSB.append(replacedLine).append(System.lineSeparator());
+                }else{
+                    colChildrenSB.append(defaultIndentation).append(replacedLine).append(System.lineSeparator());
+                }
+            }
+        }
+        mappingVariables.put("colChildren", colChildrenSB.toString());
+
+        File fileInClientApp = methods.findFile(new File(viewGenerationPath), fileToCreateInClientApp);
+        if(fileInClientApp != null){
+            Path fileInClientPath = fileInClientApp.toPath();
+            String menuListBeginning = ReadCaracAttribut("menu-list-beginning", menuConfigs);
+            List<String> lines = Files.readAllLines(fileInClientPath);
+            if(lines.isEmpty()){
+                Files.write(fileInClientApp.toPath(), "".getBytes(), StandardOpenOption.TRUNCATE_EXISTING);
+                for(String line : menuTemplateContent){
+                    Files.write(fileInClientApp.toPath(), (line + System.lineSeparator()).getBytes(), StandardOpenOption.APPEND);
+                }
+                lines = Files.readAllLines(fileInClientPath);
+            }else{
+                if(lines.size() == 1 && lines.get(0).isBlank()){
+                    Files.write(fileInClientApp.toPath(), "".getBytes(), StandardOpenOption.TRUNCATE_EXISTING);
+                    for(String line : menuTemplateContent){
+                        Files.write(fileInClientApp.toPath(), (line + System.lineSeparator()).getBytes(), StandardOpenOption.APPEND);
+                    }
+                    lines = Files.readAllLines(fileInClientPath);
+                }
+            }
+            List<String> finalLines = new ArrayList<>();
+            for(String line : lines){
+                finalLines.add(line);
+                if(line.equals(menuListBeginning)){
+                    for(String rowLine : rowsChild){
+                        String replacedLine = ReplaceSimpleVariable(rowLine, mappingVariables);
+                        finalLines.add(replacedLine);
+                    }
+                }
+            }
+
+            Files.write(fileInClientPath, "".getBytes(), StandardOpenOption.TRUNCATE_EXISTING);
+            for(String line : finalLines){
+                Files.write(fileInClientPath, (line + System.lineSeparator()).getBytes(), StandardOpenOption.APPEND);
+            }
+        }
     }
 
     public void GenerateView(Connection cnx, String templateFolder, String generatePath, String tableName, String language,String viewFramework, LoginInfo loginInfo, String authTable) throws Exception {
@@ -1056,6 +1180,15 @@ public class Generator {
         List<TypeAndName> fields = GetTableFields(cnx,(templateFolder + "/" + language.toLowerCase() + "/" + "views"),viewFramework,tableName);
         TypeAndName classPK = GetPrimaryKey(fields);
 
+        // ------ MENU -------
+        List<String> menuCaracteristiques = ReadCaracteristique("[","NavMenu","]",caracteristiquePath);
+        String menuConfigPath = viewFolder + "/" + ReadCaracAttribut("menu-config-path", menuCaracteristiques);
+        List<String> menuConfigs = ReadCaracteristique("[","Config","]",menuConfigPath);
+
+        String menuName = ReadCaracAttribut("menu-name", menuConfigs);
+        String menuLink = ReadCaracAttribut("menu-link", menuConfigs);
+        // -------------------
+
         String loginUsermail = "";
         String loginUsermailUpperFirst = "";
         String loginKey = "";
@@ -1080,6 +1213,9 @@ public class Generator {
         }else{
             mappingVariables.put("classPK", "id");
         }
+        mappingVariables.put("menuName", menuName);
+        mappingVariables.put("menuNameUpperFirst", methods.UpperFirstChar(menuName));
+        mappingVariables.put("menuLink", menuLink);
         mappingVariables.put("authTableVariable", authTable.toLowerCase());
         mappingVariables.put("authTable", authTableUpperFirst);
         mappingVariables.put("usermail", loginUsermail);
@@ -1152,26 +1288,14 @@ public class Generator {
         }
         List<String> filesToCreates = ReadCaracteristique("[", "FileToCreate", "]", caracteristiquePath);
 
-
     // ----- Si la creation de fichier necessite une commande speciale au framework -----
-        List<String> createFileCommand = ReadCaracteristique("[","CreateFileCommand","]",caracteristiquePath);
-        boolean needCommand = false;
+        List<String> createFileCommands = ReadCaracteristique("[","CreateFileCommand","]",caracteristiquePath);
+        boolean needCommand = ReadCaracAttribut("command-required", createFileCommands).equalsIgnoreCase("true");
         String commandToCreateFile = "";
-        for(String line : createFileCommand){
-            if(line.trim().startsWith("command-required") && line.contains("true")){
-                needCommand = true;
-                break;
-            }
-        }
 
     // ------ Creation du fichier ------
         if(needCommand){
-            for(String line : createFileCommand){
-                if(line.trim().startsWith("command-file-generation")){
-                    commandToCreateFile = line.split(":")[1];
-                    break;
-                }
-            }
+            commandToCreateFile = ReadCaracAttribut("command-file-generation", createFileCommands);
         }
     // ---------------------------------
     // ----------------------------------------------------------------------------------
@@ -1179,20 +1303,10 @@ public class Generator {
         // -------- Ecrire les Router si requis -----------
         List<String> routerConfigs = ReadCaracteristique("[","Router","]", caracteristiquePath);
 
+        boolean routerRequired = ReadCaracAttribut("router-required", routerConfigs).equalsIgnoreCase("true");
         String routerModuleFileName = "";
-        boolean routerRequired = false;
-        for(String config : routerConfigs){
-            if(config.toLowerCase().contains("router-required") && config.toLowerCase().contains("true")){
-                routerRequired = true;
-                break;
-            }
-        }
         if(routerRequired){
-            for(String config : routerConfigs){
-                if(config.toLowerCase().trim().startsWith("router-module-file")){
-                    routerModuleFileName = config.split(":")[1];
-                }
-            }
+            routerModuleFileName = ReadCaracAttribut("router-module-file", routerConfigs);
         }
 
         File routerModuleFile = methods.findFile(generateFile, routerModuleFileName);
@@ -1202,20 +1316,10 @@ public class Generator {
         // ----------- Si un on a besoin d'ecrire les routes dans un Proxy ----------
         List<String> proxyConfigs = ReadCaracteristique("[","ApiProxy","]", caracteristiquePath);
 
+        boolean apiProxyRequired = ReadCaracAttribut("api-proxy-required", proxyConfigs).equalsIgnoreCase("true");
         String apiProxyFileName = "";
-        boolean apiProxyRequired = false;
-        for(String config : proxyConfigs){
-            if(config.toLowerCase().contains("api-proxy-required") && config.toLowerCase().contains("true")){
-                apiProxyRequired = true;
-                break;
-            }
-        }
         if(apiProxyRequired){
-            for(String config : proxyConfigs){
-                if(config.toLowerCase().trim().startsWith("api-proxy-file")){
-                    apiProxyFileName = config.split(":")[1];
-                }
-            }
+            apiProxyFileName = ReadCaracAttribut("api-proxy-file", proxyConfigs);
         }
 
         File apiProxyConfigFile = methods.findFile(generateFile, apiProxyFileName);
@@ -1235,17 +1339,6 @@ public class Generator {
                 String currentCommand = ReplaceSimpleVariable(commandToCreateFile, mappingVariables);
 //                System.out.println("Commande to create file: "+currentCommand);
 
-                ProcessBuilder cdProcessBuilder = new ProcessBuilder("cmd.exe", "/c", "cd "+viewGenerationPath);
-                cdProcessBuilder.directory(new File(viewGenerationPath));
-                Process cdProcess = cdProcessBuilder.start();
-                cdProcess.waitFor();
-                //System.out.println(cdProcessBuilder.command().get(2));
-
-                int cdExitCode = cdProcess.exitValue();
-                if(cdExitCode != 0){
-                    System.out.println("    cd exit code: "+cdExitCode);
-                }
-
                 System.out.println(currentCommand + " ...");
                 ProcessBuilder genProcessBuilder = new ProcessBuilder("cmd.exe", "/c", currentCommand);
                 genProcessBuilder.directory(new File(viewGenerationPath));
@@ -1255,7 +1348,7 @@ public class Generator {
 
                 int genExitCode = genProcess.exitValue();
                 if(genExitCode != 0){
-                    System.out.println("    "+commandToCreateFile+" exit code "+genExitCode);
+                    System.out.println("    "+currentCommand+" exit code "+genExitCode);
                 }
             }else{  // creer manuellement les fichiers de FileCreate
                 System.out.println(" ");
@@ -1305,7 +1398,7 @@ public class Generator {
                 writeNewRouterModule(routerModuleFile, caracteristiquePath, listRouterPaths);
             }
             if(apiProxyRequired){
-                List<String> listContextProxyTemplate = ReadCaracteristique("[","ListContext","]", caracteristiquePath);
+                List<String> listContextProxyTemplate = ReadCaracteristique("[","ProxyConfContext","]", caracteristiquePath);
                 List<String> listContextProxy = new ArrayList<>();
                 for(String context : listContextProxyTemplate){
                     listContextProxy.add(ReplaceSimpleVariable(context, mappingVariables));
@@ -1315,6 +1408,8 @@ public class Generator {
             }
             // ------------------------------------------------------------------------------------------------
         }
+        ManageMenu(templateFolder,generatePath,language,viewFramework,mappingVariables,listCrud,menuCaracteristiques,menuConfigs);
+
         System.out.println("\n      Done !");
     }
 }

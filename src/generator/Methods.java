@@ -32,9 +32,33 @@ public class Methods {
         return indentation;
     }
 
-    public String RemoveSpace(String word){
+    public String RemoveSpaceBetween(String word){
         return word.replace(" ","");
     }
+    public String getIndentation(String line){
+        Pattern pattern = Pattern.compile("^(\\s+)");
+        Matcher matcher = pattern.matcher(line);
+        String indentation = "";
+        if(matcher.find()){
+            indentation = matcher.group(1);
+        }
+        return indentation;
+    }
+    public String getDefaultIndentation(List<String> lines){
+        String indentation = "";
+        String firstLineIndentation = "";
+        if(lines.size() > 0){
+            firstLineIndentation = getIndentation(lines.get(0));
+        }
+        for(String line : lines){
+            indentation = getIndentation(line);
+            if(indentation.length() > firstLineIndentation.length()){
+                break;
+            }
+        }
+        return indentation;
+    }
+
     public String[] SplitInTwo(String word, String splitter){
         String[] tab = new String[2];
         int i = word.indexOf(splitter);
@@ -53,6 +77,19 @@ public class Methods {
         }else{
             return word.substring(0, len).toUpperCase();
         }
+    }
+
+    public String GetParentPath(String filePath, String splitter){
+        StringBuilder sb = new StringBuilder();
+        String[] splitted = filePath.split(splitter);
+        for(int i=0; i<splitted.length-1; i++){
+            sb.append(splitted[i]).append(splitter);
+        }
+        return sb.substring(0, sb.length()-1);
+    }
+    public String GetFileName(String filePath, String splitter){
+        String[] splitted = filePath.split(splitter);
+        return splitted[splitted.length-1];
     }
 
     public String findFile(String filePath, String fileName, String searchPath) throws IOException {
@@ -83,6 +120,10 @@ public class Methods {
             File[] files = searchDirectory.listFiles();
             if(files != null){
                 for(File file : files){
+                    if(file.getName().trim().equalsIgnoreCase("node_modules")){
+                        continue;
+                    }
+
                     if(file.isDirectory()){
                         File foundFile = findFile(file, fileName);
                         if(foundFile != null){
@@ -117,6 +158,7 @@ public class Methods {
     }
 
     public List<String> readLines(String resourceFile) throws IOException {
+        resourceFile = resourceFile.replace("//", "/");
         InputStream fileIn = ClassLoader.getSystemResourceAsStream(resourceFile);
 
         List<String> lines = new ArrayList<>();

@@ -7,6 +7,10 @@ import generator.LoginInfo;
 
 import java.net.URL;
 import java.sql.Connection;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class Main {
     static Generator generator = new Generator();

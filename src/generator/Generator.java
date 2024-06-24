@@ -752,7 +752,7 @@ public class Generator {
         return replaced.toString();
     }
 
-    public void GenerateController(Connection cnx, String templateFolder, String generatePath, String tableName, String language, String packageName, LoginInfo loginInfo) throws Exception {
+    public void GenerateController(Connection cnx, String templateFolder, String generatePath, String tableName, String language, String modelPackageName, String packageName, LoginInfo loginInfo) throws Exception {
         List<String> finalLignes = new ArrayList<>();
 
         boolean closed = false;
@@ -770,16 +770,15 @@ public class Generator {
         String caracteristiquePath = templateFolder + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "Caracteristique.cfg";
         String controllerPath = templateFolder + "/" + language.toLowerCase() + "/" + language.toLowerCase() + "Controller.cfg";
 
-        List<String> listImports = this.ReadCaracteristique("[","ControllerImport","]", caracteristiquePath);
-
         List<TypeAndName> fields = GetTableFields(cnx, templateFolder, language, tableName);
         TypeAndName classPK = GetPrimaryKey(fields);
 
-        Map<String, List<String>> mappingListes = new HashMap<>();
-        mappingListes.put("import", listImports);
+
 
         Map<String, String> mappingVariables = new HashMap<>();
         mappingVariables.put("package", packageName);
+        mappingVariables.put("modelsPackage", modelPackageName);
+        mappingVariables.put("modelPackage", modelPackageName);
         mappingVariables.put("class", methods.UpperFirstChar(tableName));
         mappingVariables.put("classVariable", tableName.toLowerCase());
         mappingVariables.put("classPrefixe", methods.GetPrefixe(tableName, 3));
@@ -793,6 +792,15 @@ public class Generator {
             loginLines = getLoginFunction(templateFolder, tableName, language, mappingVariables);
         }
         mappingVariables.put("LoginFunction", loginLines);
+
+        List<String> listBrutImports = this.ReadCaracteristique("[","ControllerImport","]", caracteristiquePath);
+        List<String> listImports = new ArrayList<>();
+        for(String imp : listBrutImports){
+            listImports.add(ReplaceSimpleVariable(imp, mappingVariables));
+        }
+
+        Map<String, List<String>> mappingListes = new HashMap<>();
+        mappingListes.put("import", listImports);
 
         List<String> allSyntaxes = ReadCaracteristique("[","Syntaxe","]",caracteristiquePath);
         Map<String, String> mappingSyntaxes = new HashMap<>();

@@ -210,7 +210,7 @@ public class Core {
                     this.generator.GenerateClass(cnx,templateFolder,generatePath,tableName,language,this.defaultPackage,loginInfo);
                     System.out.println("  -> Model generated");
                     // Generating Controller
-                    this.generator.GenerateController(cnx,templateFolder,generatePath,tableName,language,this.defaultConrollerPackage,loginInfo);
+                    this.generator.GenerateController(cnx,templateFolder,generatePath,tableName,language, this.defaultPackage,this.defaultConrollerPackage,loginInfo);
                     System.out.println("  -> Controller generated");
                     // Generating View
                     this.generator.GenerateView(cnx, templateFolder, generatePath, tableName, language, view, loginInfo, this.authTable);

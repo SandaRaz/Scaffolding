@@ -24,6 +24,7 @@ public class Main {
         String language = "csharp";
         String viewFramework = "angular";
         String packageName = "Models";
+        String controllerPackageName = "Angular3.Controllers";
         String authTable = "account";
 
         String templateFolder = "template";
@@ -35,7 +36,7 @@ public class Main {
         LoginInfo loginInfo = new LoginInfo(true, "email", "password",false);
         generator.GenerateClass(cnx, templateFolder, generatePath,tableName, language, packageName, loginInfo);
         System.out.println("-------------------------------------------");
-        generator.GenerateController(cnx,templateFolder, generatePath,tableName,language,"Angular3.Controllers", loginInfo);
+        generator.GenerateController(cnx,templateFolder, generatePath,tableName,language, packageName,controllerPackageName, loginInfo);
         System.out.println("-------------------------------------------");
         generator.GenerateView(cnx, templateFolder,generatePath,tableName,language,viewFramework, loginInfo, authTable);
 
